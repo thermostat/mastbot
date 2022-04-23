@@ -3,7 +3,7 @@
 ######################################################################
 
 import mastodon
-import os
+import os, time
 import pprint
 import random
 import re
@@ -11,18 +11,53 @@ from bs4 import BeautifulSoup
 
 from actor import Actor
 
-class PyrentoMastBot(object):
-    def __init__(self, since=None, cfg=None):
-        self._mst = _mastbot_init()
-        self._newest_id = since
+def status_text(status):
+    return BeautifulSoup(status["status"]["content"], features='html.parser').get_text()
+
+def fmt_status(status):
+    return "{name}: {text}".format(name=status['account']['display_name'],
+                                   text=status_text(status))
+
+
+class BaseBot(object):
+    def __init__(self):
         self._actors = []
+
 
     def mainloop(self):
         keep_going = True
         while keep_going:
-            self.check_incoming()
-            time.sleep(120)
+            try:
+                self.check_incoming()
+                time.sleep(120)
+            except KeyboardInterrupt:
+                keep_going = False
+                print("\nClosing...")
             
+    def check_incoming(self):
+        pass
+
+
+    def _process_notifications(self, notes):
+        actions = []
+        for note in notes:
+            for actor in self._actors:
+                if actor.cares_about(note):
+                    actions.extend(actor.handle(note))
+        for action in actions:
+            self._execute(action)
+
+
+    def _execute(self, action):
+        action.execute(self)
+                    
+            
+    
+class PyrentoMastBot(BaseBot):
+    def __init__(self, since=None, cfg=None):
+        self._mst = _mastbot_init()
+        self._newest_id = since
+
     def check_incoming(self):
         newest_notes = mst.notifications(since_id=self._newest_id)
         if len(newest_notes):
@@ -56,9 +91,6 @@ class PyrentoMastBot(object):
         for action in actions:
             self._execute(action)
 
-    def _execute(self, action):
-        action.execute(self)
-                    
         
     def _xprocess_notifications(self, notes):
         for note in notes:
