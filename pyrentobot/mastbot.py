@@ -7,9 +7,12 @@ import os, time
 import pprint
 import random
 import re
+import logging
 from bs4 import BeautifulSoup
 
+
 from actor import Actor
+import actor
 
 def status_text(status):
     return BeautifulSoup(status["status"]["content"], features='html.parser').get_text()
@@ -18,11 +21,19 @@ def fmt_status(status):
     return "{name}: {text}".format(name=status['account']['display_name'],
                                    text=status_text(status))
 
+ACCESS_TOKEN=os.environ['MASTBOT_ACCESS_TOKEN']
+
+
+def _mastbot_init():
+    global mst
+    mst = mastodon.Mastodon(access_token=ACCESS_TOKEN, api_base_url='https://botsin.space/')
+    return mst
+
 
 class BaseBot(object):
     def __init__(self):
         self._actors = []
-
+        logging.basicConfig(filename='mastbot.log', encoding='utf-8', level=logging.INFO)
 
     def mainloop(self):
         keep_going = True
@@ -55,6 +66,7 @@ class BaseBot(object):
     
 class PyrentoMastBot(BaseBot):
     def __init__(self, since=None, cfg=None):
+        super(PyrentoMastBot, self).__init__()
         self._mst = _mastbot_init()
         self._newest_id = since
 
@@ -67,8 +79,8 @@ class PyrentoMastBot(BaseBot):
         self._clear_notifications()
 
 
-    def reply(self, status, msg):
-        result = self._mst.status_post(msg, in_reply_to_id=status['status']['id'])
+    def reply(self, msg, reply_id):
+        result = self._mst.status_post(msg, in_reply_to_id=reply_id)
 
     def send_message(self, msg):
         result = self._mst.status_post(msg)
@@ -82,16 +94,6 @@ class PyrentoMastBot(BaseBot):
         self._mst.notifications_clear()
 
 
-    def _process_notifications(self, notes):
-        actions = []
-        for note in notes:
-            for actor in self._actors:
-                if actor.cares_about(note):
-                    actions.extend(actor.handle(note))
-        for action in actions:
-            self._execute(action)
-
-        
     def _xprocess_notifications(self, notes):
         for note in notes:
             if note['type'] == 'mention':
@@ -108,3 +110,6 @@ class PyrentoMastBot(BaseBot):
 
 if __name__ == '__main__':
     print("ok")
+    pb = PyrentoMastBot(since=4745712)
+    pb._actors.append(actor.RollActor())
+    pb.mainloop()

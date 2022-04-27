@@ -48,6 +48,8 @@ class PyrentoBot(object):
     def _reply(self, status, msg):
         print("sending {}".format(msg))
         result = self._mst.status_post(msg, in_reply_to_id=status['status']['id'])
+        pprint.pprint(status)
+        print(status['status']['id'])
         print(result)
 
     def _clear_notifications(self):

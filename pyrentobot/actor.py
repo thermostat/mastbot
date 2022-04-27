@@ -54,7 +54,6 @@ class RollActor(Actor):
             print("RollActor Exception")
         return result
 
-                
 
 class Action(object):
 
